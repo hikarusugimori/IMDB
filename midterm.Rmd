@@ -1,0 +1,246 @@
+---
+title: "Take-Home Midterm Exam"
+author: "BUS 32100"
+date: "Due Friday, Nov 1, 2019"
+---
+
+
+Name:  
+
+
+Instructions
+===
+
+- You must work alone.
+
+- You will be submitting an R markdown and/or a knitted HTML file to Canvas, as usual, by **Friday, Nov 1** at 11:59 pm. Late submission, but within 24 hours of due date/time: -20%. Any later: no credit. Submit a knitted html for full credit.
+
+- For full credit on each question, make sure you follow exactly what is asked, and answer each prompt. The total is 100 points (and there are 10 bonus points).
+
+- You may only ask clarification questions on Piazza; you may not ask questions for help. This is an exam, not a homework or lab assignment.
+ 
+- In some cases, an incomplete code is given to guide you in the right direction. However, you will need to fill in the blanks and complete the entire code block in order to run. Make sure to fill all the blanks and complete all the missing parts,  before you knit your R markdown file. Otherwise, it will return knitting errors.
+
+## Data
+Your data for the midterm exam consists of the 1036 highest rated movies on the Internet Movie Database (IMDB). We will be using this data to predict the imdb user ratings for movies. In some cases, some of these variables may be missing for a particular movie. For your convenience, Here is the codebook for this data set:
+
+| Variable name | Description 
+|:--------|:-------------------------------------------------------------
+| `Title`		| The movie title
+| `Year` 		| The year the movie was released.
+| `RunTime` | The movie's run time in minutes
+| `ContentRating` | content rating of the movie(G, PG, PG-13, R ,NC-17, etc)
+| `UserRating` 		  | The average rating of the movie by IMDB users
+| `Metascore` 		  | The average rating of the movie by Metacritic users
+| `NumRaters` 		  | The number of ratings of the movie
+| `Genre` 		  | The movie’s genre
+| `Budget` 		  | The movie’s budget (in USD)
+| `GrossUS` 		  | The gross revenue of the movie in the US (in USD)
+| `GrossGlobal` | The gross revenue of the movie globally (in USD)
+| `Director1` 		  | The movie’s director
+| `Director2` 		  | The movie’s director
+| `Actor1` 		  | The movie’s actor
+| `Actor2` 		  | The movie’s actor
+| `Actor3` 		  | The movie’s actor
+
+
+
+
+
+## Load packages (5 pts)
+Use this block to load all the packages you will be using.
+**Victory conditions**: All the packages needed to run the R markdown and knit to html file are included. Submit a knitted html for full credit.
+```{r}
+library(ggplot2) # visualization
+library(scales) # visualization
+library(dplyr) # data manipulation
+library(tidyverse)
+
+
+
+## Questions
+# 
+# - **Question 1 (10 pts)** Read in the data located online at "https://raw.githubusercontent.com/BUSN32100/data_files/master/movie.csv" and store it in a data frame called `movie`. What are its dimensions and column names of `movie`? What are the 10 movies with the highest user ratings?  Show only their titles, user ratings and genres **Victory conditions**: In addition to the dimensions and column names, you have a data frame with 10 rows and 3 columns, corresponding to the 3 variables of interest.
+# ```{r}
+
+
+movie <- read.csv("https://raw.githubusercontent.com/BUSN32100/data_files/master/movie.csv")
+str(movie)
+dim(movie)
+colnames(movie)
+
+
+hist(movie$UserRating)
+topmovies<-data.frame(movie %>% group_by(UserRating) %>% arrange(desc(UserRating)) %>% head(10) %>%select("Title","UserRating","Genre"))
+
+print(topmovies)
+dim(topmovies)
+
+
+```
+
+
+- **Question 2 (10 pts)** Now let's see how a movie's genre relates to the user rating and a few other variables. Show the average and median `UserRatings`, `NumRaters` and `GrossUS` of each `Genre`. Round your average ratings to 2 decimal points and order the results by highest average ratings. **Victory conditions**: Your code returns a data frame with dimensions 16 x 7 and, ordered by the highest average ratings. All Columns have short but clear names 
+```{r}
+
+movie %>% group_by(Genre) %>% select("UserRating", "NumRaters","GrossUS") %>%  summarise_each(funs(mean,median))%>%  arrange(desc(UserRating_mean)) %>% mutate_if(is.numeric, ~round(., 2))
+
+
+```
+
+
+- **Question 3 (15 pts)** Next, let's try some data transformations to create new predictors. Create two new columns for the log of `NumRaters` and the log of `GrossUS`, called `log_NumRaters` and `log_GrossUS`. (a) Visualize the distributions of  `log_NumRaters` and `log_GrossUS`. (b) Plot the relationship between `log_NumRaters` and `log_GrossUS`, and differentiate movies by their `ContentRating`.  **Victory conditions**:(a) You have two plots showing two different probability distributions, each with clearly labeled axes and reasonable precision. (b) You have one plot showing relationships between all the variables of interest.
+- *Hint*: `log` function in R takes the log of a value.
+
+```{r}
+
+movie<- movie %>% mutate(log_NumRaters = log(NumRaters), log_GrossUS = log(GrossUS))
+
+hist(movie$log_NumRaters, xlab = "# of Ratings")
+hist(movie$log_GrossUS, xlab = "Gross Revenue in the US ($)")
+
+movie %>% ggplot(movie, mapping = aes(log_NumRaters,log_GrossUS))+ geom_point(mapping = aes(color=ContentRating))+geom_smooth(color = "green", fill= "turquoise1")
+
+movie %>% ggplot(movie, mapping = aes(log_NumRaters,log_GrossUS))+ geom_point(mapping = aes(color=ContentRating))+geom_boxplot(color = "magenta", fill = "turquoise1", alpha = 0.35)
+
+#Bonus plot. Please disregard. 
+movie %>% ggplot(movie, mapping = aes(x=Year, y=UserRating,colour=Genre,group=Genre)) + stat_summary(fun.y="mean", geom="smooth")
+
+```
+
+- **Question 4 (15 pts)** Consider breaking the year a movie is released into decades. (a) How many movies are in each decade? (b) plot the distribution of user ratings over different decades  (c) Comment on movies from which decade has the highest average ratings, which decades has the lowest among the highest rated movies.
+**Victory conditions**: Your column for decades is a factor/character column instead of numeric/integer. You have ten subplots showing ten different decades, with clearly labeled axes and reasonable precision. 
+```{r}
+                
+YearToDecade = function(year){
+  if(year >= 1920 && year < 1930) return("1920s")
+  if(year >= 1930 && year < 1940) return("1930s")
+  if(year >= 1940 && year < 1950) return("1940s")
+  if(year >= 1950 && year < 1960) return("1950s")
+  if(year >= 1960 && year < 1970) return("1960s")
+  if(year >= 1970 && year < 1980) return("1970s")
+  if(year >= 1980 && year < 1990) return("1980s")
+  if(year >= 1990 && year < 2000) return("1990s")
+  if(year >= 2000 && year < 2010) return("2000s")
+  if(year >= 2010) return("2010s")
+  return("Other")
+}
+
+movie$Decade = factor(sapply(movie$Year, YearToDecade),                              levels=c("1920s","1930s","1940s","1950s","1960s","1970s","1980s","1990s","2000s","2010s"))
+
+plot(movie$Decade)
+
+movie %>% ggplot(movie,mapping=aes(movie$Decade,log_NumRaters))+geom_point(mapping= aes(color = UserRating))
+
+movie %>% count(Decade)
+
+ggplot(movie, mapping = aes(x = Decade, y = UserRating)) + geom_boxplot() + ggtitle("Distribution of Ratings for different Decades")
+
+ggplot(movie, mapping = aes(x = UserRating)) +geom_histogram(bins = 30)+
+  facet_wrap(~Decade) + 
+  ggtitle("Histogram of Rating by Decade") + 
+  xlab("Rating") + 
+  ylab("Count")
+
+#The code below can be used to find the average ratings for a given decade.
+movie %>% filter(Decade == "1920s") %>% summary()
+
+#Looks like we had fewer movies in the 1920s but those movies were high quality (according to the ratings). As you can see, the highest average rating was in th 1920s (8.17). Overtime, there has been a trend towards "quantity over quality" in movies. 
+
+#Of the top 10 movies, 2010 is the decade with lowest average rating. 2010 only appears once, at the bottom of top 10. 
+
+movie %>% group_by(Decade) %>% select("Decade","UserRating") %>% head(10)
+
+  
+```
+
+- **Question 5 (15 pts)** Now we take a look at the finances of these movies. Create a new variable `BreakEven`, if a movie has **either** its gross US box office or its gross global box office larger than the budget, we will give 1 for `BreakEven` otherwise 0. (a) What is the average user ratings for movies that made a profit versus those didn't?  (b) Calculate the proportion of movies that are profitable at each decade. (c) Comment on how the likelihood of being profitable change over the decades? 
+**Victory conditions**: You have a data frame showing percentages of profitable movies for each decade. Your comment is clear and concise. 
+
+```{r}
+movie<- movie %>% mutate(Profit = GrossUS-Budget, BreakEven = ifelse(Profit>=0,1,0)) 
+
+#Let me first visualise the distribution of profits. Looks like higher IMDB ratings are ever so slightly predictive of higher profit. 
+movie %>% ggplot(aes(x=UserRating, y=(Profit)/1000000))+
+        geom_point(color = "hotpink")+
+        geom_smooth(method='lm',color = "green", fill = "turquoise1")+
+        labs(x="IMDB Rating", y="Profit $ M", title="Profit vs Budget")
+
+movie %>% filter(BreakEven > 0) %>% summary()
+#Profitable movies had an average rating of 7.857. 
+movie %>% filter(BreakEven <= 0) %>% summary()
+#Unprofitable movies had an average rating of 7.817. 
+
+#I made several attempts to add a column that had the proportion of profitable movies for each decade but I was unsuccessful. The closest I got was the code below where there are two line items for each decade, one with the total number of unprofitable movies and one with the total number of profitable movies. 
+
+dat<-movie %>% group_by(Decade) %>% count(Decade,BreakEven ==1) 
+
+``` 
+
+ - **Question 6 (20 pts)**  (a) Fit a model predicting user rating from decade, year, movie run time, content rating, log of total number of raters, log of gross US, and movie genre, as well as the interaction between at least one numerical and one categorical variable. (b) Choose one categorical term and one numeric term in the regression output and comment on the meaning of their coefficients. 
+ **Victory conditions**: You have the estimated coefficients and related summary statistics for your model. Your comment for the coefficients argues cogently from specific results of the code.
+
+```{r}
+multipleregression <- lm(UserRating ~ Decade + Year + RunTime +
+      ContentRating + log_NumRaters + log_GrossUS + Genre + Genre*Budget, data = movie)
+
+summary(multipleregression)
+#Comments on the coefficients: 
+#Looks like the movie not being from the 1920s has a negative impact on the expected rating. In general, the "newer" the movie is, the lower the rating. If the movie is from 2010, there is an incremental -0.2756 (-2.619e-01) impact to the rating. 
+#RunTime has a minimal impact on the rating (3.386e-03~0.003386). 
+#The content rating has very minimal impact on the IMDB rating. 
+#More raters are associated with a higher rating. 2.542e-01 = 0.2542
+#Surprisingly, higher budgets are not predictive of higher ratings at all. The coefficient for budget is -1.129e-09. This is the case regardless of the Genre; the coefficient for all Budget and Genre combination have a coefficient of at least constant*e^-8. 
+
+
+```
+
+
+ - **Question 7 (10 pts)** Use your model to predict the imdb user rating of a 2-hour drama movie released this year, rated PG-13, with a median number of raters and a median gross US box office for drama movies. 
+ **Victory conditions**: You used the right `R` function to calculate the prediction and the prediction value matches exactly the model you used in Question 6.
+
+```{r}
+
+#7 
+
+newdata = movie %>% data.frame(movie$RunTime == 120, 
+   ContentRating = "PG-13", 
+  NumRaters = mean(movie$NumRaters), 
+  GrossUS = median(movie$GrossUS)
+  )
+
+prediction<-predict(multipleregression,newdata)
+
+summary(prediction)
+#My model predicts that a movie that meets the given description will have an average IMDB rating of 7.847. The score could range from 7.128 to 8.753. 
+
+```
+
+- **Question 8 (Extra Credict 10 pts)** 
+Among the directors of this data set, who has the most titles? Who are the top 20 directors by the number of movies in this data? Plot the numbers of movies by the top directors, show the director with the largest number of movies on top. 
+
+Because one movie can have two directors, first we need to put all directors in the same column and count the number of times of each director. Then rank them by the number of appearances. Order the directors by their counts and pass this data frame to `ggplot` to create a plot with y-axis being the director name and x-axis being the counts.
+
+Below is a piece of code your instructor wrote to accomplish that. Unfortunately, your instructor was sloppy and introduced bugs in his implementation. Fix them, then check that your fixed code generates the graph in the instruction HTML file 
+![pic1](https://raw.githubusercontent.com/BUSN32100/img/master/000005.png)
+
+- *Hint*: Out of the 10 lines of code, there are 5 lines that have bugs. If you can't fix all of them, comment out the lines.
+
+```{r}
+
+
+ movie %>% 
+   group_by(Director1) %>% 
+   gather(key=num, value=name) %>% 
+    count("Director1", sort=T) %>% 
+   # select(~!is.na()) %>% 
+  head(20) %>% 
+ #  mutate(name=factor(.$name, levels=.$name[order(.$n)]) %>% 
+   ggplot(mapping = aes(x="Director1", y=n, alpha=0.5))+
+  geom_point()
+ #   geom_bar(stat = "identity", fill='#800000')+
+#   coord_flip() + 
+#   xlabs('Number of Movies')
+
+#The debugging was very hard. This is as far as I got. 
+```
